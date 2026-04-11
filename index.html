@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>STARBITE Live Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <style>
+    :root { --primary: #007bff; --success: #28a745; --danger: #dc3545; --warning: #ffc107; --bg: #f4f7f6; --dark: #343a40; --gold: #ffd700; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 15px; background-color: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 90vh; }
+    
+    .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 450px; text-align: center; margin-bottom: 20px;}
+    h2 { margin-top: 0; font-size: 32px; color: var(--primary); margin-bottom: 5px; font-weight: 900; letter-spacing: 1px;}
+    p.subtitle { color: #666; font-size: 14px; margin-top: 0; margin-bottom: 20px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+    
+    input { padding: 15px; margin: 10px 0 20px 0; border: 2px solid #ccc; border-radius: 8px; width: 100%; box-sizing: border-box; font-size: 18px; text-align: center; font-weight: bold; transition: 0.3s; }
+    input:focus { border-color: var(--primary); outline: none; }
+    
+    button { cursor: pointer; background-color: var(--primary); color: white; border: none; padding: 15px; border-radius: 8px; font-size: 18px; font-weight: bold; width: 100%; transition: 0.2s; box-shadow: 0 4px 6px rgba(0,123,255,0.2); }
+    button:hover { filter: brightness(90%); } button:active { transform: scale(0.98); }
+    
+    .btn-secondary { background: #6c757d; box-shadow: 0 4px 6px rgba(108,117,125,0.2); margin-top: 10px; }
+
+    .result-card { border: 2px solid var(--primary); padding: 20px; border-radius: 12px; text-align: left; margin-bottom: 20px; background: #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.05); position: relative;}
+    .device-photo { width: 100%; max-height: 250px; object-fit: cover; border-radius: 8px; margin-bottom: 15px; border: 2px solid #eee; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .status-badge { display: inline-block; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: bold; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 0.5px;}
+    
+    .battery-top { width: 40px; height: 12px; background: var(--dark); margin: 0 auto; border-radius: 6px 6px 0 0; }
+    .battery-body { width: 110px; height: 180px; border: 5px solid var(--dark); border-radius: 15px; position: relative; overflow: hidden; background: #e9ecef; margin: 0 auto; box-shadow: inset 0 2px 8px rgba(0,0,0,0.1); }
+    .liquid { position: absolute; bottom: 0; left: 0; width: 100%; height: 0%; transition: height 1.5s ease-in-out, background-color 1s ease; }
+    .liquid::before, .liquid::after { content: ""; position: absolute; width: 250px; height: 250px; background: rgba(255, 255, 255, 0.4); bottom: 95%; left: 50%; transform: translateX(-50%); border-radius: 40%; animation: spin 4s linear infinite; }
+    .liquid::after { background: rgba(255, 255, 255, 0.7); border-radius: 45%; animation: spin 6s linear infinite; }
+    @keyframes spin { 0% { transform: translateX(-50%) rotate(0deg); } 100% { transform: translateX(-50%) rotate(360deg); } }
+    .battery-percentage { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 26px; font-weight: 900; color: #000; z-index: 10; text-shadow: 0px 0px 8px rgba(255,255,255,1); }
+
+    .price-box { background: #f8f9fa; border: 1px solid #ddd; padding: 15px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; margin-top: 20px; }
+    
+    .chat-bubble { padding: 10px 14px; border-radius: 12px; margin-bottom: 8px; max-width: 85%; word-wrap: break-word; clear: both; font-size: 14px; line-height: 1.4;}
+    .chat-c { background: var(--primary); color: white; float: right; border-bottom-right-radius: 2px; }
+    .chat-s { background: #e2e3e5; color: black; float: left; border-bottom-left-radius: 2px; }
+    .chat-clear { clear: both; }
+
+    .capacity-badge { background: #e3f2fd; color: var(--primary); padding: 8px 12px; border-radius: 20px; font-weight: bold; font-size: 12px; border: 2px solid var(--primary); display: inline-block; box-shadow: 0 2px 4px rgba(0,0,0,0.05);}
+    .punch-card { background: linear-gradient(135deg, #fff9e6 0%, #fff3cd 100%); border: 2px dashed #ffeeba; padding: 15px; border-radius: 12px; margin-bottom: 20px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05);}
+    .star-rating { font-size: 40px; cursor: pointer; color: #ddd; display: flex; justify-content: center; gap: 8px; margin: 20px 0; }
+    .star-rating .star:hover, .star-rating .star.active { color: var(--gold); text-shadow: 0 0 10px rgba(255, 215, 0, 0.5); transform: scale(1.1); transition: 0.2s;}
+
+    #loading { display: none; margin-top: 15px; font-weight: bold; color: var(--primary); }
+    .modal { display: none; position: fixed; z-index: 200; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); align-items: center; justify-content: center; padding: 15px; box-sizing: border-box; }
+    .modal-content { background: #fff; padding: 20px; border-radius: 12px; width: 100%; max-width: 400px; max-height: 90vh; overflow-y: auto; overflow-x: auto; box-sizing: border-box;}
+  </style>
+</head>
+<body>
+
+  <div id="searchScreen" class="container">
+      <h2>⚡️ STARBITE</h2>
+      <p class="subtitle">Customer Tracking Portal</p>
+      
+      <div style="display:flex; justify-content:center; gap:8px; flex-wrap:wrap; margin-bottom:20px;">
+          <div id="capacityRadar" class="capacity-badge">📡 Checking capacity...</div>
+          <div id="closingBadge" class="capacity-badge" style="background:#fff3cd; color:#856404; border-color:#ffeeba;">⏰ Closes at: --:--</div>
+      </div>
+
+      <p style="font-size: 14px; color: #444; margin-bottom: 5px;">Enter your Phone Number or Tag #</p>
+      <input type="tel" id="searchInput" placeholder="e.g. 08012345678 or 5">
+      <button onclick="startSearch()" style="background:var(--success);">🔍 TRACK MY DEVICE</button>
+      <div id="loading">📡 Connecting securely...</div>
+  </div>
+
+  <div id="resultsScreen" class="container" style="display: none;">
+      <h2>⚡️ STARBITE</h2>
+      <p class="subtitle">Live Device Tracker</p>
+      
+      <div style="display:flex; justify-content:center; gap:8px; flex-wrap:wrap; margin-bottom:15px;">
+          <div id="closingBadgeResult" class="capacity-badge" style="background:#fff3cd; color:#856404; border-color:#ffeeba; font-size:11px; padding:6px 10px;">⏰ Closes at: --:--</div>
+      </div>
+
+      <div id="resultsContent"></div>
+      <button class="btn-secondary" onclick="resetSearch()">⬅ Search Another</button>
+  </div>
+
+  <div id="modalClosingAlert" class="modal">
+      <div class="modal-content" style="text-align: center; border: 4px solid var(--warning);">
+          <h1 style="font-size:50px; margin:0;">⏰</h1>
+          <h3 id="alertTitle" style="color: var(--danger); margin-top:10px;">Shop Closes Soon!</h3>
+          <p id="alertBody" style="color: #333; font-size: 15px; font-weight:bold;"></p>
+          <button style="background: var(--success); width: 100%; margin-top:15px;" onclick="closeModal('modalClosingAlert')">I Understand</button>
+      </div>
+  </div>
+
+  <div id="modalPaymentAlert" class="modal">
+      <div class="modal-content" style="text-align: center; border: 4px solid var(--success);">
+          <h1 style="font-size:50px; margin:0;">💸</h1>
+          <h3 style="color: var(--success); margin-top:10px;">Payment Received!</h3>
+          <p id="paymentAlertBody" style="color: #333; font-size: 15px; font-weight:bold; line-height:1.5;"></p>
+          <button style="background: var(--success); width: 100%; margin-top:15px;" onclick="closeModal('modalPaymentAlert')">Awesome!</button>
+      </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, collection, onSnapshot, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    
+    const firebaseConfig = { 
+        apiKey: "AIzaSyCqmaIDptWNk8v5E5Sz5XKKSAmk6FNX6Yo", 
+        authDomain: "credit-record-24f1e.firebaseapp.com", 
+        projectId: "credit-record-24f1e", 
+        storageBucket: "credit-record-24f1e.firebasestorage.app", 
+        messagingSenderId: "181078991416", 
+        appId: "1:181078991416:web:6e562cccc19767561b7ccd" 
+    };
+    
+    const app = initializeApp(firebaseConfig); 
+    const db = getFirestore(app); 
+    const auth = getAuth(app);
+    
+    let ticketsData = [];
+    let powerData = { state: 'ON', offAt: null };
+    let priceConfig = { maxSockets: 50, loyalty: 'ON', closeTime: '21:00', bankName: '', accName: '', accNumber: '' };
+    let searchVal = "";
+    
+    window.notifiedShelved = new Set(); 
+    window.currentRatingScore = 0; 
+    window.lastAlertMin = null;
+    window.prevBalances = new Map(); 
+
+    signInAnonymously(auth).catch(e => console.error("Auth error:", e));
+
+    const playDing = () => { try { const ctx = new (window.AudioContext || window.webkitAudioContext)(); const osc = ctx.createOscillator(); osc.type='sine'; osc.frequency.setValueAtTime(1046.50, ctx.currentTime); osc.connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime+0.5); } catch(e){} };
+    const playCash = () => { try { const ctx = new (window.AudioContext || window.webkitAudioContext)(); const osc = ctx.createOscillator(); osc.type='square'; osc.frequency.setValueAtTime(1200, ctx.currentTime); osc.frequency.exponentialRampToValueAtTime(2000, ctx.currentTime+0.1); osc.connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime+0.2); } catch(e){} };
+
+    function checkClosingTime() {
+        if(!priceConfig.closeTime) return;
+        const now = new Date();
+        const [hours, mins] = priceConfig.closeTime.split(':').map(Number);
+        const closeTime = new Date();
+        closeTime.setHours(hours, mins, 0, 0);
+
+        const diffMs = closeTime - now;
+        const diffMins = Math.round(diffMs / 60000);
+
+        const title = document.getElementById('alertTitle');
+        const body = document.getElementById('alertBody');
+
+        if (diffMins <= 0 && diffMins >= -120) { 
+            if(window.lastAlertMin !== 'CLOSED') {
+                 window.lastAlertMin = 'CLOSED';
+                 title.innerText = "Shop is Closed!";
+                 body.innerHTML = "We are currently closed for the day. Please return tomorrow to pick up your device.";
+                 document.getElementById('modalClosingAlert').style.display = 'flex';
+            }
+            return;
+        }
+
+        if (diffMins <= 30 && diffMins > 0) {
+            let threshold = null;
+            if (diffMins <= 30 && diffMins > 20) threshold = 30;
+            else if (diffMins <= 20 && diffMins > 10) threshold = 20;
+            else if (diffMins <= 10 && diffMins > 0) threshold = 10;
+
+            if (threshold && window.lastAlertMin !== threshold) {
+                window.lastAlertMin = threshold;
+                title.innerText = "Shop Closes Soon!";
+                body.innerHTML = `We are closing in exactly <span style="font-size:22px; color:var(--danger);">${diffMins}</span> minutes.<br><span style="color:#666; font-size:13px; font-weight:normal; display:block; margin-top:5px;">Please head to the shop soon to pick up your device.</span>`;
+                document.getElementById('modalClosingAlert').style.display = 'flex';
+                playDing();
+            }
+        }
+    }
+
+    onSnapshot(doc(db, "config", "prices"), (snap) => {
+        if(snap.exists()) {
+            const d = snap.data();
+            priceConfig = { maxSockets: d.maxSockets||50, loyalty: d.loyalty||'ON', closeTime: d.closeTime||'21:00', bankName: d.bankName||'', accName: d.accName||'', accNumber: d.accNumber||'' };
+        }
+        updateCapacityRadar();
+        
+        if(priceConfig.closeTime) {
+            let [h, m] = priceConfig.closeTime.split(':');
+            let ampm = h >= 12 ? 'PM' : 'AM';
+            h = h % 12 || 12;
+            let timeStr = `⏰ Closes at: ${h}:${m} ${ampm}`;
+            document.getElementById('closingBadge').innerText = timeStr;
+            document.getElementById('closingBadgeResult').innerText = timeStr;
+        }
+        
+        if(searchVal) renderResults();
+        checkClosingTime();
+    });
+
+    onSnapshot(doc(db, "config", "power"), (snap) => { 
+        if(snap.exists()) powerData = snap.data(); 
+        if(searchVal) renderResults(); 
+    });
+
+    onSnapshot(collection(db, "tickets"), (snap) => { 
+        ticketsData = snap.docs.map(d => ({ ...d.data(), id: d.id, jsDate: d.data().ts ? d.data().ts.toDate() : new Date() }));
+        updateCapacityRadar();
+        if(searchVal) renderResults(); 
+    });
+
+    setInterval(() => { 
+        if (searchVal) renderResults(); 
+        checkClosingTime();
+    }, 60000);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlTag = urlParams.get('track');
+    if(urlTag) {
+        document.getElementById('searchInput').value = urlTag;
+        setTimeout(startSearch, 1500); 
+    }
+
+    window.closeModal = (id) => { document.getElementById(id).style.display = 'none'; };
+
+    window.updateCapacityRadar = () => {
+        const max = priceConfig.maxSockets || 50;
+        const active = ticketsData.filter(t => !t.collected).length;
+        const avail = Math.max(0, max - active);
+        const radar = document.getElementById('capacityRadar');
+        
+        if(avail > 5) { radar.innerHTML = `🟢 ${avail} Sockets Available! Walk in now!`; radar.style.color = "var(--success)"; radar.style.borderColor = "var(--success)"; radar.style.background = "#d4edda"; } 
+        else if(avail > 0) { radar.innerHTML = `🟡 Only ${avail} Sockets Left! Hurry!`; radar.style.color = "#856404"; radar.style.borderColor = "#856404"; radar.style.background = "#fff3cd"; } 
+        else { radar.innerHTML = `🔴 Shop is Currently FULL. Check back soon.`; radar.style.color = "var(--danger)"; radar.style.borderColor = "var(--danger)"; radar.style.background = "#f8d7da"; }
+    };
+
+    window.startSearch = () => {
+        const val = document.getElementById('searchInput').value.trim();
+        if(!val) return alert("Please enter a valid Phone Number or Tag #.");
+        searchVal = val; document.getElementById('loading').style.display = 'block';
+        
+        setTimeout(() => {
+            document.getElementById('searchScreen').style.display = 'none';
+            document.getElementById('resultsScreen').style.display = 'block';
+            document.getElementById('loading').style.display = 'none';
+            renderResults();
+        }, 800);
+    };
+
+    window.resetSearch = () => {
+        searchVal = ""; document.getElementById('searchInput').value = "";
+        window.prevBalances.clear(); 
+        document.getElementById('resultsScreen').style.display = 'none';
+        document.getElementById('searchScreen').style.display = 'block';
+        window.history.pushState({}, document.title, window.location.pathname);
+    };
+
+    // --- NEW: ON THE WAY BUTTON ACTION ---
+    window.notifyOnTheWay = async (id) => {
+        try { 
+            await updateDoc(doc(db, "tickets", id), { onTheWay: true, onTheWayTs: Date.now() }); 
+        } catch (e) { alert("Network error. Please try again."); }
+    };
+
+    window.sendCustChat = async (id) => {
+        const inp = document.getElementById('custChatInput_'+id); const text = inp.value.trim(); if(!text) return;
+        const t = ticketsData.find(x => x.id === id); if(!t) return;
+        const newChats = t.chats || []; newChats.push({ s: 'c', msg: text, ts: Date.now() });
+        inp.value = ''; 
+        try { await updateDoc(doc(db, "tickets", id), { chats: newChats, hasUnread: true }); } 
+        catch (e) { alert("Network error. Please try again."); }
+    };
+
+    window.setRating = (num) => {
+        window.currentRatingScore = num;
+        for(let i=1; i<=5; i++) {
+            const s = document.getElementById('star_'+i);
+            if(i <= num) { s.classList.add('active'); s.style.color = "var(--gold)"; }
+            else { s.classList.remove('active'); s.style.color = "#ddd"; }
+        }
+    };
+
+    window.submitRating = async (id) => {
+        if(window.currentRatingScore === 0) return alert("Please tap the stars to leave a rating!");
+        const rTxt = document.getElementById('reviewText').value.trim();
+        try {
+            await updateDoc(doc(db, "tickets", id), { rating: window.currentRatingScore, reviewText: rTxt });
+            document.getElementById('reviewBox').innerHTML = `
+                <div style="text-align:center; padding: 20px;">
+                    <div style="font-size: 50px; margin-bottom:10px;">🏆</div>
+                    <h3 style="color:var(--success); margin:0;">Thank you!</h3>
+                    <p style="color:#666;">Your feedback goes directly to management.</p>
+                </div>`;
+            confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } }); 
+        } catch(e) { alert("Error submitting review. " + e.message); }
+    };
+
+    window.showPaymentAlert = (paidAmt, isFull) => {
+        const body = document.getElementById('paymentAlertBody');
+        if(isFull) {
+            body.innerHTML = `We successfully received your payment of <span style="font-size:22px; color:var(--success);">₦${paidAmt}</span>.<br>Your bill is now fully settled! Thank you! ✅`;
+        } else {
+            body.innerHTML = `We successfully received your partial payment of <span style="font-size:22px; color:var(--success);">₦${paidAmt}</span>.<br>Your balance has been updated in the app!`;
+        }
+        document.getElementById('modalPaymentAlert').style.display = 'flex';
+        playCash();
+    };
+
+    function renderResults() {
+        const rc = document.getElementById('resultsContent');
+        if(ticketsData.length === 0) { rc.innerHTML = "<p>Connecting to database...</p>"; return; }
+
+        const cleanSearch = String(searchVal).replace(/^#+/, '');
+        const matches = ticketsData.filter(t => !t.collected && (String(t.tag).replace(/^#+/, '') === cleanSearch || t.phone === cleanSearch));
+
+        if(matches.length === 0) { 
+            const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+            const recentCollected = ticketsData.filter(x => x.collected && (String(x.tag).replace(/^#+/,'') === cleanSearch || x.phone === cleanSearch) && x.jsDate.getTime() > oneDayAgo);
+            
+            if(recentCollected.length > 0) {
+                const latest = recentCollected[0];
+                if(!latest.rating) {
+                    rc.innerHTML = `
+                        <div id="reviewBox" style="background:#fff; border:2px solid var(--gold); padding:25px 20px; border-radius:12px; box-shadow:0 4px 15px rgba(255, 215, 0, 0.2); text-align:center;">
+                            <div style="font-size: 40px; margin-bottom: 10px;">👋</div>
+                            <h3 style="margin-top:0; color:var(--dark);">Device Collected!</h3>
+                            <p style="font-size:15px; color:#555; line-height:1.5;">How was your service with <b>${latest.collectedBy || 'our staff'}</b> today?</p>
+                            
+                            <div class="star-rating">
+                                <span class="star" id="star_1" onclick="setRating(1)">★</span>
+                                <span class="star" id="star_2" onclick="setRating(2)">★</span>
+                                <span class="star" id="star_3" onclick="setRating(3)">★</span>
+                                <span class="star" id="star_4" onclick="setRating(4)">★</span>
+                                <span class="star" id="star_5" onclick="setRating(5)">★</span>
+                            </div>
+                            
+                            <textarea id="reviewText" placeholder="Leave a comment for management (optional)..." style="width:100%; height:80px; padding:10px; border:1px solid #ccc; border-radius:8px; font-family:inherit; resize:none; margin-bottom:15px; box-sizing:border-box;"></textarea>
+                            
+                            <button onclick="submitRating('${latest.id}')" style="background:var(--gold); color:#000; box-shadow: 0 4px 6px rgba(255,215,0,0.3);">Submit Review</button>
+                        </div>
+                    `;
+                    return;
+                }
+            }
+
+            rc.innerHTML = `
+                <div style="background:#f8d7da; color:#721c24; padding:20px; border-radius:8px; border-left: 5px solid #dc3545;">
+                    <h3 style="margin-top:0;">✅ No Active Devices</h3>
+                    <p style="margin-bottom:0; font-size:14px; line-height:1.5;">If you recently picked up your device, it has been securely removed from the active system.</p>
+                </div>`; 
+            return; 
+        }
+
+        let html = '';
+
+        const firstMatch = matches[0];
+        if(priceConfig.loyalty === 'ON' && firstMatch && firstMatch.phone && firstMatch.phone.length > 7) {
+            const pastCollected = ticketsData.filter(t => t.phone === firstMatch.phone && t.collected).length;
+            const cycle = pastCollected % 5;
+            
+            let starsHtml = '';
+            for(let i=0; i<5; i++) { 
+                if (i < cycle) { starsHtml += '<span style="color:var(--gold); font-size:24px; margin:0 2px;">★</span>'; } 
+                else { starsHtml += '<span style="color:#ccc; font-size:24px; margin:0 2px;">☆</span>'; }
+            }
+            
+            let remaining = 5 - cycle;
+            html += `
+            <div class="punch-card">
+                <h4 style="margin:0 0 5px 0; color:var(--dark); text-transform:uppercase; letter-spacing:1px;">🏆 Loyalty Reward</h4>
+                <div style="margin:10px 0;">${starsHtml}</div>
+                <p style="margin:0; font-size:14px; color:#555;"><b>${remaining}</b> more charges until a <b style="color:var(--danger);">FREE</b> charge!</p>
+            </div>`;
+        }
+
+        matches.forEach(t => {
+            const nowMs = t.shelved && t.shelvedAt ? t.shelvedAt : (powerData.state === 'OFF' ? powerData.offAt : Date.now());
+            const diffMins = Math.floor((nowMs - t.jsDate.getTime()) / 60000); 
+
+            let statText = "⚡ CHARGING NOW"; let statColor = "var(--primary)"; let statBg = "#e3f2fd";
+            if(t.shelved) { 
+                statText = "📦 ON SHELF (Ready for Pickup)"; statColor = "var(--success)"; statBg = "#d4edda"; 
+            } else if (powerData.state === 'OFF') { 
+                statText = "🛑 PAUSED (Grid Outage)"; statColor = "var(--danger)"; statBg = "#f8d7da"; 
+            } else if (t.shelfPh || t.shelfPb || t.shelfOt) {
+                statText = "⏳ PARTIALLY READY"; statColor = "#856404"; statBg = "#fff3cd";
+            }
+
+            if(t.shelved && !window.notifiedShelved.has(t.id)) {
+                window.notifiedShelved.add(t.id);
+                playDing(); 
+                confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, zIndex: 10000 }); 
+            }
+
+            let photoHtml = t.photo ? `<img src="${t.photo}" class="device-photo" alt="Device Photo">` : '';
+            
+            let barsHtml = '<div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 15px; margin: 20px 0;">';
+            let activePh = (t.ph || 0) - (t.colPh || 0);
+            let activePb = (t.pb || 0) - (t.colPb || 0);
+            let activeOt = (t.ot || 0) - (t.colOt || 0);
+
+            if(activePh > 0) {
+                let p = Math.min(100, Math.floor((diffMins / 150) * 100)); 
+                let c = 'var(--danger)'; let txt = `📱 Phones`;
+                if(p >= 30) c = 'var(--warning)'; if(p >= 80) c = 'var(--success)';
+                if(t.shelved || t.shelfPh) { p=100; c='var(--success)'; txt=`📱 ON SHELF ✅`; }
+                barsHtml += `
+                <div style="display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 90px;">
+                    <div class="battery-top"></div>
+                    <div class="battery-body">
+                        <div class="liquid" style="height: ${p}%; background: ${c};"></div>
+                        <div class="battery-percentage">${p}%</div>
+                    </div>
+                    <div style="font-size: 13px; font-weight: bold; color: #333; margin-top: 8px; text-align: center;">${txt}</div>
+                </div>`;
+            }
+
+            if(activePb > 0) {
+                let p = Math.min(100, Math.floor((diffMins / 600) * 100)); 
+                let c = 'var(--danger)'; let txt = `🔋 P-Banks`;
+                if(p >= 30) c = 'var(--warning)'; if(p >= 80) c = 'var(--success)';
+                if(t.shelved || t.shelfPb) { p=100; c='var(--success)'; txt=`🔋 ON SHELF ✅`; }
+                barsHtml += `
+                <div style="display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 90px;">
+                    <div class="battery-top"></div>
+                    <div class="battery-body">
+                        <div class="liquid" style="height: ${p}%; background: ${c};"></div>
+                        <div class="battery-percentage">${p}%</div>
+                    </div>
+                    <div style="font-size: 13px; font-weight: bold; color: #333; margin-top: 8px; text-align: center;">${txt}</div>
+                </div>`;
+            }
+
+            if(activePh <= 0 && activePb <= 0 && activeOt > 0) {
+                let p = Math.min(100, Math.floor((diffMins / 150) * 100)); 
+                let c = 'var(--danger)'; let txt = `⚡ Devices`;
+                if(p >= 30) c = 'var(--warning)'; if(p >= 80) c = 'var(--success)';
+                if(t.shelved || t.shelfOt) { p=100; c='var(--success)'; txt=`⚡ ON SHELF ✅`; }
+                barsHtml += `
+                <div style="display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 90px;">
+                    <div class="battery-top"></div>
+                    <div class="battery-body">
+                        <div class="liquid" style="height: ${p}%; background: ${c};"></div>
+                        <div class="battery-percentage">${p}%</div>
+                    </div>
+                    <div style="font-size: 13px; font-weight: bold; color: #333; margin-top: 8px; text-align: center;">${txt}</div>
+                </div>`;
+            }
+            barsHtml += '</div>';
+
+            let condWarning = (t.cond && t.cond.length > 0) ? `<p style="color:var(--danger); font-size:13px; font-weight:bold; margin-top:0; padding:10px; background:#f8d7da; border-radius:6px;">⚠️ Notice: Received with ${t.cond.join(', ')}</p>` : '';
+
+            let chats = t.chats || [];
+            let chatHtml = chats.map(c => `<div class="chat-bubble ${c.s==='c'?'chat-c':'chat-s'}">${c.msg}</div><div class="chat-clear"></div>`).join('');
+            if(chats.length === 0) chatHtml = '<p style="color:#999; text-align:center; font-size:12px; margin:10px 0; font-style:italic;">Send a message to the staff...</p>';
+
+            let amtPaid = t.amountPaid !== undefined ? t.amountPaid : (t.payStatus === 'Now' ? t.price : 0);
+            let currentBal = t.price - amtPaid;
+
+            if (window.prevBalances.has(t.id)) {
+                let oldBal = window.prevBalances.get(t.id);
+                if (oldBal > currentBal) {
+                    let amountJustPaid = oldBal - currentBal;
+                    if (currentBal <= 0) {
+                        showPaymentAlert(amountJustPaid, true);
+                        confetti({ particleCount: 200, spread: 90, origin: { y: 0.6 }, zIndex: 10000, colors: ['#28a745', '#ffd700'] });
+                    } else {
+                        showPaymentAlert(amountJustPaid, false);
+                    }
+                }
+            }
+            window.prevBalances.set(t.id, currentBal);
+            
+            let badgeHtml = '';
+            let priceText = '';
+            
+            if(currentBal <= 0) {
+                badgeHtml = `<span style="background:#d4edda; color:#155724; padding:8px 14px; border-radius:6px; font-size:14px; font-weight:bold; border: 2px solid #c3e6cb;">✅ PAID IN FULL</span>`;
+                priceText = `<p style="font-weight:900; margin:0; font-size:26px; color:var(--dark);">₦${t.price}</p><small style="color:#666; font-weight:bold; text-transform:uppercase;">Total Bill</small>`;
+            } else if (amtPaid > 0) {
+                badgeHtml = `<span style="background:#fff3cd; color:#856404; padding:8px 14px; border-radius:6px; font-size:14px; font-weight:bold; border: 2px solid #ffeeba;">⏳ OWES ₦${currentBal}</span>`;
+                priceText = `<p style="font-weight:900; margin:0; font-size:26px; color:var(--danger);">₦${currentBal}</p><small style="color:#666; font-weight:bold; text-transform:uppercase;">Balance Due (of ₦${t.price})</small>`;
+            } else {
+                badgeHtml = `<span style="background:#f8d7da; color:#721c24; padding:8px 14px; border-radius:6px; font-size:14px; font-weight:bold; border: 2px solid #f5c6cb;">⏳ PAY LATER</span>`;
+                priceText = `<p style="font-weight:900; margin:0; font-size:26px; color:var(--dark);">₦${t.price}</p><small style="color:#666; font-weight:bold; text-transform:uppercase;">Total Bill</small>`;
+            }
+
+            let bankHtml = '';
+            if (currentBal > 0 && priceConfig.accNumber) {
+                bankHtml = `
+                <div style="background:#f8f9fa; border:1px solid #ddd; padding:15px; border-radius:8px; margin-top:15px; text-align:center;">
+                    <h4 style="margin:0 0 10px 0; color:var(--dark); font-size:14px;">🏦 Pay via Bank Transfer</h4>
+                    <p style="margin:0 0 5px 0; font-size:13px; color:#555;">Bank: <b>${priceConfig.bankName}</b></p>
+                    <p style="margin:0 0 5px 0; font-size:13px; color:#555;">Name: <b>${priceConfig.accName}</b></p>
+                    <p style="margin:0 0 10px 0; font-size:18px; font-weight:900; color:var(--primary); letter-spacing:1px;">${priceConfig.accNumber}</p>
+                    <button onclick="navigator.clipboard.writeText('${priceConfig.accNumber}'); alert('Account Number Copied! You can now paste it in your bank app.');" style="background:#6c757d; padding:8px 15px; font-size:12px; width:auto; margin:0;">📋 Copy Account Number</button>
+                </div>`;
+            }
+
+            // --- NEW: I'M ON MY WAY BUTTON UI ---
+            let onTheWayHtml = '';
+            if(!t.shelved) { // Only show if not fully shelved yet
+                if(t.onTheWay) {
+                    onTheWayHtml = `<div style="background:var(--success); color:white; padding:12px; border-radius:8px; font-weight:bold; text-align:center; box-shadow: 0 4px 6px rgba(40,167,69,0.3); margin-top:15px;">🚗 See you soon! We are getting your device ready.</div>`;
+                } else {
+                    onTheWayHtml = `<button onclick="notifyOnTheWay('${t.id}')" style="background:var(--warning); color:#000; margin-top:15px; box-shadow: 0 4px 6px rgba(255,193,7,0.3);">🏃‍♂️ I'm On My Way! (Get it ready)</button>`;
+                }
+            }
+
+            html += `
+                <div class="result-card">
+                    ${photoHtml}
+                    <h3 style="margin:0 0 5px 0; color:var(--dark); font-size:22px;">Hello, ${t.name}!</h3>
+                    <p style="margin:0 0 15px 0; color:#666; font-size:15px; font-family:monospace; font-weight:bold;">Tag #${t.tag}</p>
+                    
+                    ${condWarning}
+
+                    <div class="status-badge" style="background:${statBg}; color:${statColor}; border: 1px solid ${statColor};">
+                        ${statText}
+                    </div>
+
+                    ${barsHtml}
+
+                    <div style="background:#e3f2fd; border-left:4px solid var(--primary); padding:12px; border-radius:4px; margin-top:15px; font-size:12px; color:#333; line-height:1.5;">
+                        <b>ℹ️ Please Note:</b> This live battery percentage is a rough estimate based on average charging speeds. It may not exactly match your device's screen. If you have questions, please use the chat below or wait until your status says <b>"ON SHELF"</b>.
+                    </div>
+
+                    ${onTheWayHtml}
+
+                    <div style="background:#f8f9fa; border:1px solid #ddd; padding:15px; border-radius:8px; margin-top:20px; text-align:left;">
+                        <h4 style="margin-top:0; color:var(--dark); font-size:15px; margin-bottom:10px;">💬 Message the Shop</h4>
+                        <div id="custChatHistory_${t.id}" style="height:150px; overflow-y:auto; margin-bottom:10px; background:#fff; padding:10px; border-radius:8px; border:1px solid #eee; display:flex; flex-direction:column;">
+                            ${chatHtml}
+                        </div>
+                        <div style="display:flex; gap:8px;">
+                            <input type="text" id="custChatInput_${t.id}" placeholder="Type your message..." style="flex:1; margin:0; padding:12px; font-size:14px; border: 1px solid #ccc; border-radius: 8px;">
+                            <button type="button" onclick="sendCustChat('${t.id}')" style="width:auto; padding:12px 20px; margin:0; font-size:14px; border-radius: 8px;">Send</button>
+                        </div>
+                    </div>
+
+                    <div class="price-box">
+                        <div>
+                            ${priceText}
+                        </div>
+                        ${badgeHtml}
+                    </div>
+                    
+                    ${bankHtml}
+                </div>
+            `;
+            
+            setTimeout(() => { 
+                const cBox = document.getElementById('custChatHistory_' + t.id); 
+                if(cBox) cBox.scrollTop = cBox.scrollHeight; 
+            }, 100);
+        });
+
+        rc.innerHTML = html;
+    }
+  </script>
+</body>
+</html>
