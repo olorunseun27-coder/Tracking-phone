@@ -132,36 +132,35 @@
     function checkClosingTime() {
         if(!priceConfig.closeTime) return;
         const now = new Date();
+        const currentMins = now.getHours() * 60 + now.getMinutes();
         const [hours, mins] = priceConfig.closeTime.split(':').map(Number);
-        const closeTime = new Date();
-        closeTime.setHours(hours, mins, 0, 0);
-
-        const diffMs = closeTime - now;
-        const diffMins = Math.round(diffMs / 60000);
+        const closeMins = hours * 60 + mins;
+        const isClosed = currentMins >= closeMins || currentMins < 420;
+        const minsUntilClose = closeMins - currentMins;
 
         const title = document.getElementById('alertTitle');
         const body = document.getElementById('alertBody');
 
-        if (diffMins <= 0 && diffMins >= -120) { 
+        if (isClosed) { 
             if(window.lastAlertMin !== 'CLOSED') {
                  window.lastAlertMin = 'CLOSED';
                  title.innerText = "Shop is Closed!";
-                 body.innerHTML = "We are currently closed for the day. Please return tomorrow to pick up your device.";
+                 body.innerHTML = "We are currently closed. Please return during opening hours to pick up your device.";
                  document.getElementById('modalClosingAlert').style.display = 'flex';
             }
             return;
         }
 
-        if (diffMins <= 30 && diffMins > 0) {
+        if (minsUntilClose <= 30 && minsUntilClose > 0) {
             let threshold = null;
-            if (diffMins <= 30 && diffMins > 20) threshold = 30;
-            else if (diffMins <= 20 && diffMins > 10) threshold = 20;
-            else if (diffMins <= 10 && diffMins > 0) threshold = 10;
+            if (minsUntilClose <= 30 && minsUntilClose > 20) threshold = 30;
+            else if (minsUntilClose <= 20 && minsUntilClose > 10) threshold = 20;
+            else if (minsUntilClose <= 10 && minsUntilClose > 0) threshold = 10;
 
             if (threshold && window.lastAlertMin !== threshold) {
                 window.lastAlertMin = threshold;
                 title.innerText = "Shop Closes Soon!";
-                body.innerHTML = `We are closing in exactly <span style="font-size:22px; color:var(--danger);">${diffMins}</span> minutes.<br><span style="color:#666; font-size:13px; font-weight:normal; display:block; margin-top:5px;">Please head to the shop soon to pick up your device.</span>`;
+                body.innerHTML = `We are closing in exactly <span style="font-size:22px; color:var(--danger);">${minsUntilClose}</span> minutes.<br><span style="color:#666; font-size:13px; font-weight:normal; display:block; margin-top:5px;">Please start wrapping up and reminding customers.</span>`;
                 document.getElementById('modalClosingAlert').style.display = 'flex';
                 playDing();
             }
@@ -245,13 +244,13 @@
         window.history.pushState({}, document.title, window.location.pathname);
     };
 
-    // --- NEW: ON THE WAY BUTTON ACTION ---
     window.notifyOnTheWay = async (id) => {
         try { 
             await updateDoc(doc(db, "tickets", id), { onTheWay: true, onTheWayTs: Date.now() }); 
         } catch (e) { alert("Network error. Please try again."); }
     };
 
+    // --- INTERNAL CHAT ENGINE FOR CUSTOMER ---
     window.sendCustChat = async (id) => {
         const inp = document.getElementById('custChatInput_'+id); const text = inp.value.trim(); if(!text) return;
         const t = ticketsData.find(x => x.id === id); if(!t) return;
@@ -487,9 +486,8 @@
                 </div>`;
             }
 
-            // --- NEW: I'M ON MY WAY BUTTON UI ---
             let onTheWayHtml = '';
-            if(!t.shelved) { // Only show if not fully shelved yet
+            if(!t.shelved) { 
                 if(t.onTheWay) {
                     onTheWayHtml = `<div style="background:var(--success); color:white; padding:12px; border-radius:8px; font-weight:bold; text-align:center; box-shadow: 0 4px 6px rgba(40,167,69,0.3); margin-top:15px;">🚗 See you soon! We are getting your device ready.</div>`;
                 } else {
